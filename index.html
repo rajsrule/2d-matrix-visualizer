@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D Matrix Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Math&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #0a0a0b;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  color: #e8e8ea;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+canvas {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  display: block;
+}
+
+/* ── Card base ─────────────────────────────────────────────────────────────── */
+.card {
+  position: fixed;
+  background: rgba(8,8,10,0.78);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  border-radius: 12px;
+  padding: 16px;
+  z-index: 10;
+  outline: 1px solid rgba(255,255,255,0.04);
+  /* Fix text blurriness from backdrop-filter compositing */
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Matrix card ───────────────────────────────────────────────────────────── */
+#matrix-card {
+  top: 16px; left: 16px;
+  width: 240px;
+  user-select: none;
+}
+#matrix-card .card-title {
+  font-size: 10px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: rgba(232,232,234,0.5);
+  margin-bottom: 10px;
+}
+
+/* Tab switcher */
+.tab-row {
+  display: flex;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 14px;
+  gap: 3px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 12px;
+  font-family: inherit;
+  color: rgba(232,232,234,0.5);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.tab-btn.active {
+  background: rgba(255,255,255,0.12);
+  color: #e8e8ea;
+}
+
+/* Basic 2×2 grid */
+#basic-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.matrix-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.matrix-input-wrap label {
+  font-size: 11px;
+  color: rgba(232,232,234,0.4);
+  line-height: 1;
+}
+/* text inputs for matrix — type="text" with inputmode="decimal" */
+.matrix-input-wrap input {
+  width: 100%;
+  background: rgba(255,255,255,0.07);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 14px;
+  font-family: 'IBM Plex Math', 'IBM Plex Sans', monospace;
+  color: #e8e8ea;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  transition: background 0.18s;
+}
+.matrix-input-wrap input:focus { background: rgba(255,255,255,0.12); }
+
+/* Slider mode */
+#slider-mode { display: none; margin-bottom: 12px; }
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.slider-label {
+  font-size: 12px;
+  font-family: 'IBM Plex Math', monospace;
+  width: 12px;
+  text-align: center;
+  color: rgba(232,232,234,0.6);
+  flex-shrink: 0;
+}
+.slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #e8e8ea;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.slider-val {
+  font-size: 11px;
+  font-family: 'IBM Plex Math', monospace;
+  font-variant-numeric: tabular-nums;
+  width: 36px;
+  text-align: right;
+  color: rgba(232,232,234,0.7);
+  flex-shrink: 0;
+}
+
+/* Det toggle */
+.det-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.det-row label {
+  font-size: 12px;
+  color: rgba(232,232,234,0.6);
+  cursor: pointer;
+  flex: 1;
+}
+.toggle-switch {
+  position: relative;
+  width: 32px; height: 18px;
+  flex-shrink: 0;
+}
+.toggle-switch input { display: none; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.12);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 12px; height: 12px;
+  background: rgba(232,232,234,0.5);
+  border-radius: 50%;
+  transition: transform 0.18s, background 0.18s;
+  pointer-events: none;
+}
+.toggle-switch input:checked + .toggle-track { background: rgba(124,106,245,0.4); }
+.toggle-switch input:checked ~ .toggle-thumb { transform: translateX(14px); background: rgba(180,165,255,0.9); }
+.det-value {
+  font-size: 11px;
+  font-family: 'IBM Plex Math', monospace;
+  color: rgba(164,148,255,0.85);
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reset button */
+.reset-btn {
+  width: 100%;
+  padding: 7px;
+  font-size: 12px;
+  font-family: inherit;
+  background: rgba(255,255,255,0.07);
+  border: none;
+  border-radius: 7px;
+  color: rgba(232,232,234,0.6);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+.reset-btn:hover { background: rgba(255,255,255,0.12); color: #e8e8ea; }
+
+/* ── Custom vectors card ───────────────────────────────────────────────────── */
+#vectors-card {
+  left: 16px;
+  width: 240px;
+}
+#vectors-card .card-title {
+  font-size: 10px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: rgba(232,232,234,0.5);
+  margin-bottom: 10px;
+}
+.vector-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.vec-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.vec-input {
+  flex: 1;
+  background: rgba(255,255,255,0.07);
+  border: none;
+  border-radius: 5px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: 'IBM Plex Math', monospace;
+  color: #e8e8ea;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  min-width: 0;
+  transition: background 0.18s;
+}
+.vec-input:focus { background: rgba(255,255,255,0.12); }
+.vec-del {
+  background: none;
+  border: none;
+  color: rgba(232,232,234,0.3);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.vec-del:hover { color: rgba(232,232,234,0.8); background: rgba(255,255,255,0.08); }
+.add-vec-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  background: none;
+  border: 1px dashed rgba(255,255,255,0.18);
+  border-radius: 6px;
+  color: rgba(232,232,234,0.4);
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.add-vec-btn:hover {
+  color: rgba(232,232,234,0.8);
+  border-color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.05);
+}
+
+/* ── Calc card ─────────────────────────────────────────────────────────────── */
+#calc-card {
+  top: 16px; right: 16px;
+  width: 240px;
+  max-height: calc(100vh - 32px);
+  /* Hide scrollbar but allow scroll if needed */
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+#calc-card::-webkit-scrollbar { display: none; }
+#calc-card .card-title {
+  font-size: 10px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: rgba(232,232,234,0.5);
+  margin-bottom: 12px;
+}
+.calc-section { margin-bottom: 12px; }
+.calc-label {
+  font-size: 11px;
+  margin-bottom: 6px;
+  font-family: 'IBM Plex Math', serif;
+}
+.calc-row {
+  font-size: 12px;
+  font-family: 'IBM Plex Math', monospace;
+  font-variant-numeric: tabular-nums;
+  color: rgba(232,232,234,0.7);
+  line-height: 1.7;
+  white-space: pre;
+}
+.calc-result {
+  font-size: 13px;
+  font-family: 'IBM Plex Math', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+.calc-divider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin: 10px 0;
+}
+.calc-det {
+  font-size: 12px;
+  font-family: 'IBM Plex Math', monospace;
+  font-variant-numeric: tabular-nums;
+  color: rgba(164,148,255,0.85);
+  line-height: 1.6;
+}
+
+/* ── GitHub icon button ────────────────────────────────────────────────────── */
+#github-btn {
+  position: fixed;
+  bottom: 16px; right: 16px;
+  width: 44px; height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 12px;
+  background: rgba(8,8,10,0.78);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  outline: 1px solid rgba(255,255,255,0.04);
+  z-index: 10;
+  transform: translateZ(0);
+  color: rgba(255,255,255,0.5);
+  transition: color 0.18s;
+}
+#github-btn:hover { color: rgba(255,255,255,0.9); }
+
+/* ── Drag hint ─────────────────────────────────────────────────────────────── */
+#drag-hint {
+  position: fixed;
+  bottom: 68px; right: 16px;
+  font-size: 11px;
+  color: rgba(232,232,234,0.35);
+  z-index: 10;
+  transition: opacity 1s ease;
+  font-style: italic;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<!-- Matrix Card -->
+<div class="card" id="matrix-card">
+  <div class="card-title">Transform Matrix</div>
+  <div class="tab-row">
+    <button class="tab-btn active" id="tab-basic">Basic</button>
+    <button class="tab-btn" id="tab-sliders">Sliders</button>
+  </div>
+
+  <div id="basic-mode">
+    <div class="matrix-input-wrap">
+      <label>a &nbsp;<span style="opacity:.5;font-size:10px">col₁ row₁</span></label>
+      <input type="text" inputmode="decimal" pattern="-?[0-9]*\.?[0-9]*" id="inp-a" value="1">
+    </div>
+    <div class="matrix-input-wrap">
+      <label>b &nbsp;<span style="opacity:.5;font-size:10px">col₂ row₁</span></label>
+      <input type="text" inputmode="decimal" pattern="-?[0-9]*\.?[0-9]*" id="inp-b" value="0">
+    </div>
+    <div class="matrix-input-wrap">
+      <label>c &nbsp;<span style="opacity:.5;font-size:10px">col₁ row₂</span></label>
+      <input type="text" inputmode="decimal" pattern="-?[0-9]*\.?[0-9]*" id="inp-c" value="0">
+    </div>
+    <div class="matrix-input-wrap">
+      <label>d &nbsp;<span style="opacity:.5;font-size:10px">col₂ row₂</span></label>
+      <input type="text" inputmode="decimal" pattern="-?[0-9]*\.?[0-9]*" id="inp-d" value="1">
+    </div>
+  </div>
+
+  <div id="slider-mode">
+    <div class="slider-row">
+      <span class="slider-label">a</span>
+      <input type="range" id="sl-a" min="-4" max="4" step="0.05" value="1">
+      <span class="slider-val" id="sv-a">1</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">b</span>
+      <input type="range" id="sl-b" min="-4" max="4" step="0.05" value="0">
+      <span class="slider-val" id="sv-b">0</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">c</span>
+      <input type="range" id="sl-c" min="-4" max="4" step="0.05" value="0">
+      <span class="slider-val" id="sv-c">0</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">d</span>
+      <input type="range" id="sl-d" min="-4" max="4" step="0.05" value="1">
+      <span class="slider-val" id="sv-d">1</span>
+    </div>
+  </div>
+
+  <div class="det-row" style="margin-top:12px">
+    <div class="toggle-switch">
+      <input type="checkbox" id="det-toggle">
+      <div class="toggle-track" onclick="document.getElementById('det-toggle').click()"></div>
+      <div class="toggle-thumb"></div>
+    </div>
+    <label for="det-toggle">Show Determinant</label>
+  </div>
+  <div class="det-value" id="det-display">det(M) = 1·1 − 0·0 = 1</div>
+
+  <button class="reset-btn" id="reset-btn">Reset to Identity</button>
+</div>
+
+<!-- Custom Vectors Card -->
+<div class="card" id="vectors-card">
+  <div class="card-title">Custom Vectors</div>
+  <div id="vectors-list"></div>
+  <button class="add-vec-btn" id="add-vec-btn">＋ Add Vector</button>
+</div>
+
+<!-- Calc Card -->
+<div class="card" id="calc-card">
+  <div class="card-title">Calculations</div>
+  <div class="calc-section">
+    <div class="calc-label" style="color:#4aaee8">î = <span style="font-size:13px">[1, 0]</span></div>
+    <div class="calc-row" id="calc-i1"></div>
+    <div class="calc-row" id="calc-i2"></div>
+    <div class="calc-result" id="calc-i-result" style="color:#4aaee8;background:rgba(74,174,232,0.08)"></div>
+  </div>
+  <hr class="calc-divider">
+  <div class="calc-section">
+    <div class="calc-label" style="color:#e8844a">ĵ = <span style="font-size:13px">[0, 1]</span></div>
+    <div class="calc-row" id="calc-j1"></div>
+    <div class="calc-row" id="calc-j2"></div>
+    <div class="calc-result" id="calc-j-result" style="color:#e8844a;background:rgba(232,132,74,0.08)"></div>
+  </div>
+  <div id="calc-det-section" style="display:none">
+    <hr class="calc-divider">
+    <div class="calc-det" id="calc-det-text"></div>
+  </div>
+</div>
+
+<!-- GitHub Icon Button -->
+<a id="github-btn" href="https://github.com/rajsrule/2d-matrix-visualizer" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+  </svg>
+</a>
+
+<!-- Drag hint -->
+<div id="drag-hint">drag î or ĵ to transform</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const M = { a:1, b:0, c:0, d:1 };   // displayed (animated)
+const T = { a:1, b:0, c:0, d:1 };   // target
+let showDet = false;
+let animating = false;
+let rafId = null;
+
+const VEC_COLORS = ['#a78bfa','#34d399','#fbbf24','#f87171','#22d3ee'];
+let customVectors = [];
+let nextVecId = 0;
+
+let dragging = null;
+let hoverTarget = null;
+
+// ─── Canvas ───────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, scale, ox, oy;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  scale = Math.min(W, H) / 10;
+  ox = W / 2;
+  oy = H / 2;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+// ─── Math helpers ──────────────────────────────────────────────────────────────
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// Format for display: strip trailing zeros, max 2 dp
+function fmtDisplay(v) {
+  const n = Number(v);
+  // toFixed(2) then strip trailing zeros
+  let s = n.toFixed(2);
+  s = s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  return s;
+}
+
+// Format for calc card rows (right-aligned with sign space)
+function fmtSigned(v) {
+  const n = Number(v);
+  return (n >= 0 ? ' ' : '') + fmtDisplay(n);
+}
+
+// ─── Animation loop ────────────────────────────────────────────────────────────
+function startAnim() {
+  if (animating) return;
+  animating = true;
+  rafId = requestAnimationFrame(tick);
+}
+
+function tick() {
+  const LERP = 0.18;
+  let changed = false;
+  for (const k of ['a','b','c','d']) {
+    const diff = T[k] - M[k];
+    if (Math.abs(diff) > 0.0005) {
+      M[k] = lerp(M[k], T[k], LERP);
+      changed = true;
+    } else {
+      M[k] = T[k];
+    }
+  }
+  draw();
+  if (changed) {
+    rafId = requestAnimationFrame(tick);
+  } else {
+    animating = false;
+    rafId = null;
+    draw();
+  }
+}
+
+// ─── Drawing ──────────────────────────────────────────────────────────────────
+function worldToCanvas(wx, wy) {
+  return [ox + wx * scale, oy - wy * scale];
+}
+
+function drawArrow(x1, y1, x2, y2, color, width, headSize) {
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.sqrt(dx*dx+dy*dy);
+  if (len < 1) return;
+  const nx = dx/len, ny = dy/len;
+  const hs = Math.min(headSize, len*0.5);
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle   = color;
+  ctx.lineWidth   = width;
+  ctx.lineCap     = 'round';
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2 - nx*hs*0.9, y2 - ny*hs*0.9);
+  ctx.stroke();
+
+  const px = -ny, py = nx;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - nx*hs + px*(hs*0.42), y2 - ny*hs + py*(hs*0.42));
+  ctx.lineTo(x2 - nx*hs - px*(hs*0.42), y2 - ny*hs - py*(hs*0.42));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDashedArrow(x1, y1, x2, y2, color, width) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = width;
+  ctx.setLineDash([5,4]);
+  ctx.lineCap     = 'round';
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0a0b';
+  ctx.fillRect(0, 0, W, H);
+
+  const a = M.a, b = M.b, c = M.c, d = M.d;
+  const RANGE = 20;
+
+  // ── Transformed grid ──
+  ctx.save();
+  ctx.lineWidth = 1;
+  // lines parallel to ĵ
+  for (let n = -RANGE; n <= RANGE; n++) {
+    const isAxis = n === 0;
+    ctx.strokeStyle = isAxis ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)';
+    const [x0,y0] = worldToCanvas(n*a - RANGE*b, n*c - RANGE*d);
+    const [x1,y1] = worldToCanvas(n*a + RANGE*b, n*c + RANGE*d);
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+  }
+  // lines parallel to î
+  for (let n = -RANGE; n <= RANGE; n++) {
+    const isAxis = n === 0;
+    ctx.strokeStyle = isAxis ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)';
+    const [x0,y0] = worldToCanvas(-RANGE*a + n*b, -RANGE*c + n*d);
+    const [x1,y1] = worldToCanvas( RANGE*a + n*b,  RANGE*c + n*d);
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+  }
+  ctx.restore();
+
+  // ── Determinant parallelogram ──
+  if (showDet) {
+    const det = a*d - b*c;
+    const [o0,o1] = worldToCanvas(0, 0);
+    const [ix,iy] = worldToCanvas(a, c);
+    const [jx,jy] = worldToCanvas(b, d);
+    const [ijx,ijy] = worldToCanvas(a+b, c+d);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(o0,o1); ctx.lineTo(ix,iy);
+    ctx.lineTo(ijx,ijy); ctx.lineTo(jx,jy);
+    ctx.closePath();
+    const isNeg = det < 0;
+    ctx.fillStyle   = isNeg ? 'rgba(239,68,68,0.13)' : 'rgba(124,106,245,0.15)';
+    ctx.fill();
+    ctx.strokeStyle = isNeg ? 'rgba(239,68,68,0.4)'  : 'rgba(124,106,245,0.4)';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([]);
+    ctx.stroke();
+
+    // Centroid label inside parallelogram
+    const cx = (o0 + ix + ijx + jx) / 4;
+    const cy = (o1 + iy + ijy + jy) / 4;
+    ctx.font         = "bold 13px 'IBM Plex Sans', sans-serif";
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle    = 'rgba(180,160,255,0.9)';
+    ctx.fillText(fmtDisplay(det), cx, cy);
+
+    ctx.restore();
+  }
+
+  // ── Custom vectors ──
+  for (const v of customVectors) {
+    const vx = v.x, vy = v.y;
+    const tx = a*vx + b*vy;
+    const ty = c*vx + d*vy;
+    const [ox0,oy0] = worldToCanvas(0, 0);
+    const [gx,gy]   = worldToCanvas(vx, vy);
+    const [tx2,ty2] = worldToCanvas(tx, ty);
+    drawDashedArrow(ox0, oy0, gx,  gy,  v.color, 1.5);
+    drawArrow      (ox0, oy0, tx2, ty2, v.color, 2, 10);
+  }
+
+  // ── Basis vectors ──
+  const [ox0,oy0] = worldToCanvas(0, 0);
+  const [iX,iY]   = worldToCanvas(a, c);
+  const [jX,jY]   = worldToCanvas(b, d);
+
+  drawArrow(ox0, oy0, iX, iY, '#4aaee8', 2.5, 13);
+  drawArrow(ox0, oy0, jX, jY, '#e8844a', 2.5, 13);
+
+  // hover rings
+  if (hoverTarget === 'i' && !dragging) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(74,174,232,0.4)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath(); ctx.arc(iX, iY, 10, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+  if (hoverTarget === 'j' && !dragging) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(232,132,74,0.4)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath(); ctx.arc(jX, jY, 10, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Labels ──
+  ctx.save();
+  ctx.font = "italic 14px 'IBM Plex Math', serif";
+  ctx.textBaseline = 'middle';
+  const iOff = labelOffset(a, c, 18);
+  ctx.fillStyle = '#4aaee8';
+  ctx.fillText('î', iX + iOff[0], iY + iOff[1]);
+  const jOff = labelOffset(b, d, 18);
+  ctx.fillStyle = '#e8844a';
+  ctx.fillText('ĵ', jX + jOff[0], jY + jOff[1]);
+  ctx.restore();
+
+  // ── Origin dot ──
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath(); ctx.arc(ox0, oy0, 3, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function labelOffset(wx, wy, dist) {
+  const len = Math.sqrt(wx*wx + wy*wy) || 1;
+  return [wx/len * dist, -wy/len * dist];
+}
+
+// ─── UI sync ──────────────────────────────────────────────────────────────────
+// Called from sliders & drag — does NOT override focused text inputs
+function updateUIFromState(skipInputs) {
+  const a = T.a, b = T.b, c = T.c, d = T.d;
+
+  if (!skipInputs) {
+    // Only update inputs that are not currently focused
+    setInputIfNotFocused('inp-a', fmtDisplay(a));
+    setInputIfNotFocused('inp-b', fmtDisplay(b));
+    setInputIfNotFocused('inp-c', fmtDisplay(c));
+    setInputIfNotFocused('inp-d', fmtDisplay(d));
+  }
+
+  // sliders always sync
+  for (const k of ['a','b','c','d']) {
+    const sl = document.getElementById(`sl-${k}`);
+    const sv = document.getElementById(`sv-${k}`);
+    if (sl) sl.value = T[k];
+    if (sv) sv.textContent = fmtDisplay(T[k]);
+  }
+
+  // det label
+  const det = a*d - b*c;
+  document.getElementById('det-display').textContent =
+    `det(M) = ${fmtDisplay(a)}·${fmtDisplay(d)} − ${fmtDisplay(b)}·${fmtDisplay(c)} = ${fmtDisplay(det)}`;
+
+  // calc card
+  document.getElementById('calc-i1').textContent =
+    `${fmtSigned(a)}·1 + ${fmtSigned(b)}·0 = ${fmtDisplay(a)} + 0 = ${fmtDisplay(a)}`;
+  document.getElementById('calc-i2').textContent =
+    `${fmtSigned(c)}·1 + ${fmtSigned(d)}·0 = ${fmtDisplay(c)} + 0 = ${fmtDisplay(c)}`;
+  document.getElementById('calc-i-result').textContent = `→ [${fmtDisplay(a)}, ${fmtDisplay(c)}]`;
+
+  document.getElementById('calc-j1').textContent =
+    `${fmtSigned(a)}·0 + ${fmtSigned(b)}·1 = 0 + ${fmtDisplay(b)} = ${fmtDisplay(b)}`;
+  document.getElementById('calc-j2').textContent =
+    `${fmtSigned(c)}·0 + ${fmtSigned(d)}·1 = 0 + ${fmtDisplay(d)} = ${fmtDisplay(d)}`;
+  document.getElementById('calc-j-result').textContent = `→ [${fmtDisplay(b)}, ${fmtDisplay(d)}]`;
+
+  const calcDetSec = document.getElementById('calc-det-section');
+  if (showDet) {
+    calcDetSec.style.display = 'block';
+    document.getElementById('calc-det-text').innerHTML =
+      `det(M) = ${fmtDisplay(a)}·${fmtDisplay(d)} − ${fmtDisplay(b)}·${fmtDisplay(c)}<br>= ${fmtDisplay(a*d)} − ${fmtDisplay(b*c)}<br>= <strong>${fmtDisplay(det)}</strong>`;
+  } else {
+    calcDetSec.style.display = 'none';
+  }
+}
+
+function setInputIfNotFocused(id, val) {
+  const el = document.getElementById(id);
+  if (el && document.activeElement !== el) el.value = val;
+}
+
+function setTarget(a, b, c, d) {
+  T.a = +a; T.b = +b; T.c = +c; T.d = +d;
+  updateUIFromState(false);
+  startAnim();
+}
+
+// ─── Matrix text inputs ────────────────────────────────────────────────────────
+// Regex: valid partial decimal (allows '-', '-1', '1.', etc.)
+const PARTIAL_RE = /^-?(\d+\.?\d*|\.\d+)?$/;
+
+['a','b','c','d'].forEach(k => {
+  const inp = document.getElementById(`inp-${k}`);
+
+  inp.addEventListener('input', e => {
+    const raw = e.target.value;
+    const parsed = parseFloat(raw);
+    // Only update state if it's a complete finite number
+    if (!isNaN(parsed) && isFinite(parsed) && PARTIAL_RE.test(raw.trim()) && raw.trim() !== '-') {
+      T[k] = parsed;
+      updateUIFromState(true); // don't override the input the user is editing
+      startAnim();
+    }
+  });
+
+  inp.addEventListener('focus', e => {
+    // Show raw numeric value on focus (strip trailing zeros)
+    e.target.value = fmtDisplay(T[k]);
+  });
+
+  inp.addEventListener('blur', e => {
+    const raw = e.target.value.trim();
+    const parsed = parseFloat(raw);
+    if (!isNaN(parsed) && isFinite(parsed)) {
+      T[k] = parsed;
+      e.target.value = fmtDisplay(parsed);
+    } else {
+      // Revert to current state value
+      e.target.value = fmtDisplay(T[k]);
+    }
+    updateUIFromState(false);
+    startAnim();
+  });
+});
+
+// ─── Slider inputs ─────────────────────────────────────────────────────────────
+['a','b','c','d'].forEach(k => {
+  document.getElementById(`sl-${k}`).addEventListener('input', e => {
+    T[k] = parseFloat(e.target.value);
+    updateUIFromState(false);
+    startAnim();
+  });
+});
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+document.getElementById('tab-basic').addEventListener('click', () => {
+  document.getElementById('tab-basic').classList.add('active');
+  document.getElementById('tab-sliders').classList.remove('active');
+  document.getElementById('basic-mode').style.display = 'grid';
+  document.getElementById('slider-mode').style.display = 'none';
+});
+document.getElementById('tab-sliders').addEventListener('click', () => {
+  document.getElementById('tab-sliders').classList.add('active');
+  document.getElementById('tab-basic').classList.remove('active');
+  document.getElementById('slider-mode').style.display = 'block';
+  document.getElementById('basic-mode').style.display = 'none';
+});
+// Init tab display
+document.getElementById('basic-mode').style.display = 'grid';
+document.getElementById('slider-mode').style.display = 'none';
+
+// ─── Det toggle ───────────────────────────────────────────────────────────────
+document.getElementById('det-toggle').addEventListener('change', e => {
+  showDet = e.target.checked;
+  updateUIFromState(false);
+  draw();
+});
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+document.getElementById('reset-btn').addEventListener('click', () => {
+  setTarget(1, 0, 0, 1);
+});
+
+// ─── Custom Vectors ───────────────────────────────────────────────────────────
+function renderVectors() {
+  const list = document.getElementById('vectors-list');
+  list.innerHTML = '';
+  customVectors.forEach(v => {
+    const row = document.createElement('div');
+    row.className = 'vector-row';
+    row.innerHTML = `
+      <div class="vec-dot" style="background:${v.color}"></div>
+      <input type="text" inputmode="decimal" class="vec-input" value="${v.x}" data-id="${v.id}" data-axis="x" title="x">
+      <input type="text" inputmode="decimal" class="vec-input" value="${v.y}" data-id="${v.id}" data-axis="y" title="y">
+      <button class="vec-del" data-id="${v.id}" title="Remove">×</button>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('.vec-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const id   = parseInt(e.target.dataset.id);
+      const axis = e.target.dataset.axis;
+      const vec  = customVectors.find(v => v.id === id);
+      const parsed = parseFloat(e.target.value);
+      if (vec && !isNaN(parsed) && isFinite(parsed)) {
+        vec[axis] = parsed;
+        draw();
+      }
+    });
+    inp.addEventListener('blur', e => {
+      const id   = parseInt(e.target.dataset.id);
+      const axis = e.target.dataset.axis;
+      const vec  = customVectors.find(v => v.id === id);
+      const parsed = parseFloat(e.target.value);
+      if (vec) {
+        if (!isNaN(parsed) && isFinite(parsed)) {
+          vec[axis] = parsed;
+          e.target.value = fmtDisplay(parsed);
+        } else {
+          e.target.value = fmtDisplay(vec[axis]);
+        }
+        draw();
+      }
+    });
+  });
+
+  list.querySelectorAll('.vec-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const id = parseInt(e.target.dataset.id);
+      customVectors = customVectors.filter(v => v.id !== id);
+      renderVectors();
+      draw();
+    });
+  });
+}
+
+document.getElementById('add-vec-btn').addEventListener('click', () => {
+  if (customVectors.length >= 6) return;
+  customVectors.push({
+    id: nextVecId++,
+    x: 1, y: 0,
+    color: VEC_COLORS[customVectors.length % VEC_COLORS.length]
+  });
+  renderVectors();
+  draw();
+});
+
+// ─── Drag for basis vector tips ───────────────────────────────────────────────
+function worldToCanvasCurrent(wx, wy) {
+  return [ox + wx*scale, oy - wy*scale];
+}
+function hitTest(cx, cy) {
+  const tips = {
+    i: worldToCanvasCurrent(M.a, M.c),
+    j: worldToCanvasCurrent(M.b, M.d)
+  };
+  const HIT = 22;
+  for (const [key, [tx,ty]] of Object.entries(tips)) {
+    const dx = cx-tx, dy = cy-ty;
+    if (dx*dx+dy*dy <= HIT*HIT) return key;
+  }
+  return null;
+}
+function canvasToWorld(cx, cy) {
+  return [(cx-ox)/scale, (oy-cy)/scale];
+}
+
+canvas.addEventListener('mousemove', e => {
+  if (dragging) {
+    const [wx,wy] = canvasToWorld(e.clientX, e.clientY);
+    applyDrag(wx, wy);
+    return;
+  }
+  const hit = hitTest(e.clientX, e.clientY);
+  if (hit !== hoverTarget) {
+    hoverTarget = hit;
+    canvas.style.cursor = hit ? 'grab' : 'default';
+    draw();
+  }
+});
+canvas.addEventListener('mousedown', e => {
+  const hit = hitTest(e.clientX, e.clientY);
+  if (hit) {
+    dragging = hit;
+    canvas.style.cursor = 'grabbing';
+    dismissHint();
+    e.preventDefault();
+  }
+});
+canvas.addEventListener('mouseup', () => {
+  if (dragging) { dragging = null; canvas.style.cursor = hoverTarget ? 'grab' : 'default'; }
+});
+canvas.addEventListener('mouseleave', () => {
+  if (!dragging) { hoverTarget = null; draw(); }
+});
+canvas.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  const hit = hitTest(t.clientX, t.clientY);
+  if (hit) { dragging = hit; dismissHint(); e.preventDefault(); }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  const t = e.touches[0];
+  const [wx,wy] = canvasToWorld(t.clientX, t.clientY);
+  applyDrag(wx, wy);
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchend', () => { dragging = null; });
+
+function applyDrag(wx, wy) {
+  if (dragging === 'i') { T.a = wx; T.c = wy; M.a = wx; M.c = wy; }
+  else                  { T.b = wx; T.d = wy; M.b = wx; M.d = wy; }
+  updateUIFromState(false);
+  draw();
+}
+
+// ─── Drag hint ────────────────────────────────────────────────────────────────
+const hint = document.getElementById('drag-hint');
+let hintDismissed = false;
+const hintTimer = setTimeout(() => { if (!hintDismissed) dismissHint(); }, 5000);
+function dismissHint() {
+  if (hintDismissed) return;
+  hintDismissed = true;
+  clearTimeout(hintTimer);
+  hint.style.opacity = '0';
+  setTimeout(() => hint.style.display = 'none', 1000);
+}
+
+// ─── Position vectors card below matrix card ──────────────────────────────────
+function positionVectorsCard() {
+  const mc = document.getElementById('matrix-card');
+  const vc = document.getElementById('vectors-card');
+  const rect = mc.getBoundingClientRect();
+  vc.style.top = (rect.bottom + 10) + 'px';
+}
+const ro = new ResizeObserver(positionVectorsCard);
+ro.observe(document.getElementById('matrix-card'));
+positionVectorsCard();
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+updateUIFromState(false);
+resize();
+</script>
+</body>
+</html>
